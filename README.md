@@ -15,6 +15,7 @@
   - Automatically identifies CSS property blocks.
   - Supports **Selection Sort** and **Full File Sort**.
   - **Preserves Comments**: Keeps single-line (`//`) and block (`/* */`) comments associated with their respective properties.
+  - Handles **multi-line properties** correctly, maintaining readability.
 - **Safe & Reliable**: Only affects the order of properties within rules; does not change values or structure.
 - **Language Support**: Works with CSS and SCSS files.
 
@@ -75,6 +76,7 @@ You can customize the sorting order in your VS Code settings (`settings.json`).
   - 自动识别 CSS 属性块。
   - 支持**选区排序**和**全文排序**。
   - **保留注释**：智能处理并保留单行注释 (`//`) 和块注释 (`/* */`)，确保它们与对应的属性保持关联。
+  - 能够正确处理**跨越多行的属性**，保持代码的可读性。
 - **安全可靠**：仅调整规则内的属性顺序，不修改属性值或代码结构。
 - **多语言支持**：支持 CSS 和 SCSS 文件。
 

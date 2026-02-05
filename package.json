@@ -1,7 +1,21 @@
 {
-  "name": "css-property-sorter",
-  "displayName": "CSS Property Sorter",
+  "name": "better-css-property-sorter",
+  "displayName": "Better CSS Property Sorter",
   "description": "Sort CSS/SCSS properties by custom order, keep display effect unchanged, support comments and custom config.",
+  "publisher": "Lanyibo-Wu",
+  "license": "MIT",
+  "icon": "images/icon.png",
+  "keywords": [
+    "css",
+    "scss",
+    "sort",
+    "property",
+    "order"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/WulanOVO/css-property-sorter"
+  },
   "version": "0.1.0",
   "engines": {
     "vscode": "^1.80.0"
