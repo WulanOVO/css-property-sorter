@@ -60,7 +60,7 @@ You can customize the sorting order in your VS Code settings (`settings.json`).
 
 1. Open **Visual Studio Code**.
 2. Go to the **Extensions** view (`Ctrl+Shift+X` or `Cmd+Shift+X`).
-3. Search for `CSS Property Sorter`.
+3. Search for `Better CSS Property Sorter`.
 4. Click **Install**.
 
 ---
@@ -121,5 +121,5 @@ You can customize the sorting order in your VS Code settings (`settings.json`).
 
 1. 打开 **Visual Studio Code**。
 2. 进入 **扩展 (Extensions)** 视图 (`Ctrl+Shift+X` 或 `Cmd+Shift+X`)。
-3. 搜索 `CSS Property Sorter`。
+3. 搜索 `Better CSS Property Sorter`。
 4. 点击 **安装 (Install)**。
