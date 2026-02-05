@@ -4,8 +4,6 @@
 
 ---
 
-`<a name="english"></a>`
-
 ## English
 
 **CSS Property Sorter** is a Visual Studio Code extension that helps you keep your CSS/SCSS code organized by sorting properties according to a customizable order. It ensures that your styles are consistent and easy to read.
@@ -65,8 +63,6 @@ You can customize the sorting order in your VS Code settings (`settings.json`).
 4. Click **Install**.
 
 ---
-
-`<a name="中文"></a>`
 
 ## 中文
 
