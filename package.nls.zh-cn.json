@@ -1,5 +1,6 @@
 {
-  "command.sortCssProperties.title": "排序选中的 CSS 属性",
-  "command.sortCssPropertiesInFile.title": "一键整理文件 CSS 属性",
-  "config.customOrder.description": "CSS 属性的自定义排序列表，不在列表中的属性将按原顺序排在最后。"
+  "command.sortSelectedCssProperties.title": "排序选中的 CSS 属性",
+  "command.sortCssPropertiesInFile.title": "排序全文 CSS 属性",
+  "config.customOrder.description": "CSS 属性的自定义排序列表，不在列表中的属性将按原顺序排在最后。",
+  "config.enableConfirm.description": "是否在排序全文 CSS 属性时发送确认提示。"
 }

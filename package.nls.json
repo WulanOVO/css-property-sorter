@@ -1,5 +1,6 @@
 {
-  "command.sortCssProperties.title": "Sort Selected CSS Properties",
+  "command.sortSelectedCssProperties.title": "Sort Selected CSS Properties",
   "command.sortCssPropertiesInFile.title": "Sort CSS Properties in File",
-  "config.customOrder.description": "Custom order list for CSS properties, properties not in the list will be placed at the end in original order."
+  "config.customOrder.description": "Custom order list for CSS properties, properties not in the list will be placed at the end in original order.",
+  "config.enableConfirm.description": "Enable confirm prompt when sorting the entire file."
 }

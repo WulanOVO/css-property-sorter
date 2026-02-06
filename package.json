@@ -16,7 +16,7 @@
     "type": "git",
     "url": "https://github.com/WulanOVO/css-property-sorter"
   },
-  "version": "0.1.0",
+  "version": "0.1.1",
   "engines": {
     "vscode": "^1.80.0"
   },
@@ -28,8 +28,8 @@
   "contributes": {
     "commands": [
       {
-        "command": "css-property-sorter.sortCssProperties",
-        "title": "%command.sortCssProperties.title%"
+        "command": "css-property-sorter.sortSelectedCssProperties",
+        "title": "%command.sortSelectedCssProperties.title%"
       },
       {
         "command": "css-property-sorter.sortCssPropertiesInFile",
@@ -39,7 +39,7 @@
     "menus": {
       "editor/context": [
         {
-          "command": "css-property-sorter.sortCssProperties",
+          "command": "css-property-sorter.sortSelectedCssProperties",
           "when": "editorHasSelection && editorLangId =~ /css|scss/",
           "group": "navigation@100"
         },
@@ -52,16 +52,16 @@
     },
     "keybindings": [
       {
-        "command": "css-property-sorter.sortCssProperties",
+        "command": "css-property-sorter.sortSelectedCssProperties",
         "key": "shift+alt+s",
         "mac": "shift+option+s",
         "when": "editorHasSelection && editorLangId =~ /css|scss/"
       }
     ],
     "configuration": {
-      "title": "CSS Property Sorter",
+      "title": "Better CSS Property Sorter",
       "properties": {
-        "cssPropertySorter.customOrder": {
+        "css-property-sorter.customOrder": {
           "type": "array",
           "default": [
             "position",
@@ -258,6 +258,11 @@
             "nav-left"
           ],
           "description": "%config.customOrder.description%"
+        },
+        "css-property-sorter.enableConfirm": {
+          "type": "boolean",
+          "default": true,
+          "description": "%config.enableConfirm.description%"
         }
       }
     }

@@ -1,8 +1,9 @@
 const vscode = require('vscode');
-const { sortCssProperties, getSortableRanges } = require('./cssSorter');
+const { scanAndSortCss } = require('./cssSorter');
 
 const messages = {
   en: {
+    confirmSort: 'Are you sure you want to sort the selected CSS properties?',
     noCssProperties: '✘ No sortable CSS properties in selection',
     sortSuccess: '✔ CSS properties sorted successfully',
     noChanges: '✔ CSS properties sorted successfully (no changes)',
@@ -10,6 +11,7 @@ const messages = {
     openFileFirst: '✘ Please open a file first',
   },
   'zh-cn': {
+    confirmSort: '确定要对整个文件的 CSS 属性进行排序吗？',
     noCssProperties: '✘ 选区中没有可处理的 CSS 属性',
     sortSuccess: '✔ CSS 属性排序成功',
     noChanges: '✔ CSS 属性排序成功（无变化）',
@@ -54,34 +56,32 @@ function expandSelectionToFullLines(editor, selection) {
 }
 
 /**
- * 执行排序并替换
+ * 应用编辑并显示状态
  * @param {vscode.TextEditor} editor
- * @param {vscode.Selection[]} selections
+ * @param {Array<{range: vscode.Range, text: string}>} edits
  */
-function performSort(editor, selections) {
-  if (selections.length === 0) {
+function applyEdits(editor, edits) {
+  if (edits.length === 0) {
     vscode.window.setStatusBarMessage(getMessage('noCssProperties'), 3000);
     return;
   }
 
   // 更新选区以高亮显示即将排序的块（视觉反馈）
-  editor.selections = selections;
+  const newSelections = edits.map(
+    (edit) => new vscode.Selection(edit.range.start, edit.range.end),
+  );
+  editor.selections = newSelections;
 
   let hasChanges = false;
 
   editor
     .edit((editBuilder) => {
-      for (const selection of selections) {
-        const text = editor.document.getText(selection);
-        try {
-          const sortedText = sortCssProperties(text);
-          // 只有当内容发生变化时才替换，避免不必要的编辑
-          if (sortedText !== text) {
-            editBuilder.replace(selection, sortedText);
-            hasChanges = true;
-          }
-        } catch (error) {
-          console.error('[css-property-sorter] Error:', error);
+      for (const edit of edits) {
+        const currentText = editor.document.getText(edit.range);
+        // 只有当内容发生变化时才替换，避免不必要的编辑
+        if (currentText !== edit.text) {
+          editBuilder.replace(edit.range, edit.text);
+          hasChanges = true;
         }
       }
     })
@@ -101,15 +101,15 @@ function performSort(editor, selections) {
 function activate(context) {
   // 注册排序命令：选区排序
   let sortSelectionCmd = vscode.commands.registerCommand(
-    'css-property-sorter.sortCssProperties',
-    function () {
+    'css-property-sorter.sortSelectedCssProperties',
+    () => {
       const editor = vscode.window.activeTextEditor;
       if (!editor) {
         vscode.window.setStatusBarMessage(getMessage('openFileFirst'), 3000);
         return;
       }
 
-      const newSelections = [];
+      const edits = [];
       const originalSelections = editor.selections;
 
       for (const selection of originalSelections) {
@@ -120,26 +120,46 @@ function activate(context) {
 
         if (!text.trim()) continue;
 
-        const ranges = getSortableRanges(text);
+        const results = scanAndSortCss(text);
         const startLine = fullSelection.start.line;
-        for (const range of ranges) {
-          const rangeStartLine = startLine + range.start;
-          const rangeEndLine = startLine + range.end;
+
+        for (const res of results) {
+          const rangeStartLine = startLine + res.start;
+          const rangeEndLine = startLine + res.end;
 
           const startPos = new vscode.Position(rangeStartLine, 0);
           const endPos = editor.document.lineAt(rangeEndLine).range.end;
-          newSelections.push(new vscode.Selection(startPos, endPos));
+          const range = new vscode.Range(startPos, endPos);
+
+          edits.push({ range, text: res.sortedText });
         }
       }
 
-      performSort(editor, newSelections);
+      applyEdits(editor, edits);
     },
   );
 
   // 注册排序命令：全文排序
   let sortFileCmd = vscode.commands.registerCommand(
     'css-property-sorter.sortCssPropertiesInFile',
-    function () {
+    async () => {
+      // 提示确认
+      const enableConfirm = vscode.workspace
+        .getConfiguration('css-property-sorter')
+        .get('enableConfirm');
+
+      if (enableConfirm) {
+        const confirm = await vscode.window.showWarningMessage(
+          getMessage('confirmSort'),
+          'Sort',
+          'Cancel',
+        );
+
+        if (confirm !== 'Sort') {
+          return;
+        }
+      }
+
       const editor = vscode.window.activeTextEditor;
       if (!editor) {
         vscode.window.setStatusBarMessage(getMessage('openFileFirst'), 3000);
@@ -147,16 +167,17 @@ function activate(context) {
       }
 
       const text = editor.document.getText();
-      const ranges = getSortableRanges(text);
-      const newSelections = [];
+      const results = scanAndSortCss(text);
+      const edits = [];
 
-      for (const range of ranges) {
-        const startPos = new vscode.Position(range.start, 0);
-        const endPos = editor.document.lineAt(range.end).range.end;
-        newSelections.push(new vscode.Selection(startPos, endPos));
+      for (const res of results) {
+        const startPos = new vscode.Position(res.start, 0);
+        const endPos = editor.document.lineAt(res.end).range.end;
+        const range = new vscode.Range(startPos, endPos);
+        edits.push({ range, text: res.sortedText });
       }
 
-      performSort(editor, newSelections);
+      applyEdits(editor, edits);
     },
   );
 
