@@ -46,7 +46,7 @@ function extractPropertyName(line) {
  * 支持多行属性（按分号封闭）
  * @param {string[]} selectedLines 选中的文本行数组
  * @param {string} eol 行结束符
- * @returns {Array<{ comments: string[], property: string, line: string, originalIndex: number }>} 关联后的块数组
+ * @returns {Array<{ property: string|null, line: string, originalIndex: number }>} 关联后的块数组
  */
 function associateCommentProps(selectedLines, eol = '\n') {
   const blocks = [];
@@ -59,6 +59,20 @@ function associateCommentProps(selectedLines, eol = '\n') {
     if (isFullLineComment(line)) {
       // 收集连续的整行注释
       currentComments.push(line);
+    } else if (line.trim().startsWith('/*') && !line.trim().includes('*/')) {
+      // 处理多行注释起始（非单行闭合）
+      currentComments.push(line);
+      let j = i + 1;
+      while (j < selectedLines.length) {
+        const nextLine = selectedLines[j];
+        currentComments.push(nextLine);
+        if (nextLine.includes('*/')) {
+          i = j;
+          break;
+        }
+        j++;
+      }
+      if (j === selectedLines.length) i = j - 1;
     } else {
       const propertyName = extractPropertyName(line);
       if (propertyName) {
@@ -74,16 +88,13 @@ function associateCommentProps(selectedLines, eol = '\n') {
             .replace(REGEX_REMOVE_COMMENTS, '')
             .trim();
 
-          if (t.endsWith(';')) {
-            // 完整属性行
+          if (t.endsWith(';')) { // 完整属性行
             isValidProperty = true;
             break;
-          } else if (t.endsWith('{')) {
-            // 多行选择器，非属性
+          } else if (t.endsWith('{')) { // 多行选择器，非属性
             isValidProperty = false;
             break;
-          } else if (j >= selectedLines.length - 1) {
-            // 到达文本末尾
+          } else if (j >= selectedLines.length - 1) { // 到达文本末尾
             isValidProperty = false;
             break;
           }
@@ -95,11 +106,13 @@ function associateCommentProps(selectedLines, eol = '\n') {
 
         i = j;
 
+        // 合并注释和属性行
+        const fullBlockContent = [...currentComments, propertyLines.join(eol)].join(eol);
+
         // 关联注释和当前属性块
         blocks.push({
-          comments: [...currentComments],
           property: isValidProperty ? propertyName : null,
-          line: propertyLines.join(eol),
+          line: fullBlockContent,
           originalIndex: originalIndex, // 保留原始索引
         });
         // 重置注释收集器
@@ -109,15 +122,13 @@ function associateCommentProps(selectedLines, eol = '\n') {
         if (currentComments.length > 0) {
           // 无后续属性的注释，单独作为块
           blocks.push({
-            comments: [...currentComments],
             property: null,
-            line: '',
+            line: currentComments.join(eol),
             originalIndex: originalIndex,
           });
           currentComments = [];
         }
         blocks.push({
-          comments: [],
           property: null,
           line: line,
           originalIndex: originalIndex,
@@ -130,9 +141,8 @@ function associateCommentProps(selectedLines, eol = '\n') {
   // 处理末尾剩余的注释
   if (currentComments.length > 0) {
     blocks.push({
-      comments: currentComments,
       property: null,
-      line: '',
+      line: currentComments.join(eol),
       originalIndex: originalIndex,
     });
   }
@@ -176,12 +186,7 @@ function getBlockComparator(customOrder) {
  */
 function processGroup(groupBlocks, comparator, eol) {
   const sorted = [...groupBlocks].sort(comparator);
-  const lines = [];
-  for (const block of sorted) {
-    lines.push(...block.comments);
-    if (block.line !== undefined) lines.push(block.line);
-  }
-  return lines.join(eol);
+  return sorted.map((block) => block.line).join(eol);
 }
 
 /**
@@ -195,9 +200,8 @@ function scanAndSortCss(text) {
   const blocks = associateCommentProps(lines, eol);
   const results = [];
 
-  // 从配置中获取自定义排序顺序
   const customOrder = vscode.workspace
-    .getConfiguration('css-property-sorter')
+    .getConfiguration('cssPropertySorter')
     .get('customOrder', []);
   const comparator = getBlockComparator(customOrder);
 
@@ -206,17 +210,10 @@ function scanAndSortCss(text) {
   let currentLineIndex = 0;
 
   for (const block of blocks) {
-    // 计算该块占用的行数（注释行 + 属性行）
-    let lineContentCount = 0;
-    if (block.line !== '') {
-      lineContentCount = block.line.split(REGEX_NEWLINE).length;
-    } else if (block.comments.length === 0) {
-      lineContentCount = 1; // 空行（无注释的空行块）
-    }
-    const blockLineCount = block.comments.length + lineContentCount;
+    // 计算该块占用的行数
+    const blockLineCount = block.line.split(REGEX_NEWLINE).length;
 
     if (block.property !== null) {
-      // 连续属性块，加入当前组
       if (currentStartLine === -1) {
         currentStartLine = currentLineIndex;
       }
