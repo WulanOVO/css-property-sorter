@@ -2,5 +2,7 @@
   "command.sortSelectedCssProperties.title": "排序选中的 CSS 属性",
   "command.sortCssPropertiesInFile.title": "排序全文 CSS 属性",
   "config.customOrder.description": "CSS 属性的自定义排序列表，不在列表中的属性将按原顺序排在最后。",
-  "config.enableConfirm.description": "是否在排序全文 CSS 属性时发送确认提示。"
+  "config.enableConfirm.description": "是否在排序全文 CSS 属性时发送确认提示。",
+  "config.sortOrder.description": "排序顺序方法。'custom' 使用自定义列表，'alphabetical' 按属性名排序。",
+  "config.unknownPropertyPosition.description": "自定义列表中未包含的属性位置。'top' 放在顶部，'bottom' 放在底部。(仅当 sortOrder 为 'custom' 时生效)"
 }

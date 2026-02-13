@@ -67,6 +67,9 @@ You can customize the plugin settings in the VS Code settings (`settings.json`).
 ]
 ```
 
+- **`css-property-sorter.sortOrder`**: Sort order method. Options: `"custom"` (default, uses the defined list), `"alphabetical"` (sorts by property name).
+- **`css-property-sorter.unknownPropertyPosition`**: Where to place properties not in the custom order list (only applies when `sortOrder` is `"custom"`). Options: `"bottom"` (default), `"top"`.
+
 - **`css-property-sorter.enableConfirm`**: Whether to send a confirmation prompt when sorting the entire file. Default value is `true`.
 
 ### ⚠️ Notes
@@ -147,6 +150,9 @@ You can customize the plugin settings in the VS Code settings (`settings.json`).
   ...
 ]
 ```
+
+- **`css-property-sorter.sortOrder`**: 排序方式。选项：`"custom"`（默认，使用自定义列表），`"alphabetical"`（按属性名首字母排序）。
+- **`css-property-sorter.unknownPropertyPosition`**: 未知属性（不在自定义列表中）的放置位置（仅当 `sortOrder` 为 `"custom"` 时有效）。选项：`"bottom"`（默认，放在底部），`"top"`（放在顶部）。
 
 - **`css-property-sorter.enableConfirm`**: 是否在排序全文 CSS 属性时发送确认提示。默认值为 `true`。
 

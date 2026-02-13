@@ -61,6 +61,24 @@
     "configuration": {
       "title": "Better CSS Property Sorter",
       "properties": {
+        "css-property-sorter.sortOrder": {
+          "type": "string",
+          "default": "custom",
+          "enum": [
+            "custom",
+            "alphabetical"
+          ],
+          "description": "%config.sortOrder.description%"
+        },
+        "css-property-sorter.unknownPropertyPosition": {
+          "type": "string",
+          "default": "bottom",
+          "enum": [
+            "top",
+            "bottom"
+          ],
+          "description": "%config.unknownPropertyPosition.description%"
+        },
         "css-property-sorter.customOrder": {
           "type": "array",
           "default": [

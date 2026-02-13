@@ -145,26 +145,43 @@ function getPropertyBlocks(selectedLines, eol = '\n') {
 /**
  * 比较器生成函数
  * @param {string[]} customOrder 自定义顺序
+ * @param {string} sortOrder 排序方式 'custom' | 'alphabetical'
+ * @param {string} unknownPropertyPosition 未知属性位置 'top' | 'bottom'
  * @returns {function(object, object): number} 比较函数
  */
-function getBlockComparator(customOrder) {
+function getBlockComparator(
+  customOrder,
+  sortOrder = 'custom',
+  unknownPropertyPosition = 'bottom',
+) {
   return (a, b) => {
+    if (sortOrder === 'alphabetical') {
+      return a.property.localeCompare(b.property);
+    }
+
     const indexA = customOrder.indexOf(a.property);
     const indexB = customOrder.indexOf(b.property);
+    const isUnknownA = indexA === -1;
+    const isUnknownB = indexB === -1;
 
     // 规则：
     // 都在自定义列表中：按列表顺序排序
-    // 只有一个在列表中：在列表中的排前面
-    // 都不在列表中：保留原始索引顺序（稳定）
-    // 同一属性（重复）：保留原始索引顺序（稳定，保证显示效果不变）
-    if (indexA !== -1 && indexB !== -1) {
+    if (!isUnknownA && !isUnknownB) {
       return indexA - indexB;
-    } else if (indexA !== -1) {
-      return -1;
-    } else if (indexB !== -1) {
-      return 1;
-    } else {
+    }
+
+    // 都不在列表中：保留原始索引顺序（稳定）
+    if (isUnknownA && isUnknownB) {
       return a.range.start - b.range.start;
+    }
+
+    // 一个在列表中，一个不在
+    if (unknownPropertyPosition === 'top') {
+      // 未知属性排在前面
+      return isUnknownA ? -1 : 1;
+    } else {
+      // 默认：未知属性排在后面
+      return isUnknownA ? 1 : -1;
     }
   };
 }
@@ -192,10 +209,18 @@ function scanAndSortCss(text) {
   const blocks = getPropertyBlocks(lines, eol);
   const results = [];
 
-  const customOrder = vscode.workspace
-    .getConfiguration('cssPropertySorter')
-    .get('customOrder', []);
-  const comparator = getBlockComparator(customOrder);
+  const config = vscode.workspace.getConfiguration('css-property-sorter');
+  const customOrder = config.get('customOrder', []);
+  const sortOrder = config.get('sortOrder', 'custom');
+  const unknownPropertyPosition = config.get(
+    'unknownPropertyPosition',
+    'bottom',
+  );
+  const comparator = getBlockComparator(
+    customOrder,
+    sortOrder,
+    unknownPropertyPosition,
+  );
 
   let currentGroup = [];
 
