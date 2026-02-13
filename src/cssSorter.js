@@ -3,6 +3,7 @@ const vscode = require('vscode');
 // --- 常量和正则表达式 ---
 const REGEX_SCSS_COMMENT = /^\/\/.*$/;
 const REGEX_CSS_BLOCK_COMMENT = /^\/\*.*\*\/$/;
+const REGEX_CSS_COMMENT_START = /\/\*.*$/;
 const REGEX_REMOVE_COMMENTS = /\/\*.*?\*\/|\/\/.*|\/\*.*$|.*\*\/$/g;
 const REGEX_NEWLINE = /\r?\n/;
 
@@ -42,108 +43,99 @@ function extractPropertyName(line) {
 }
 
 /**
- * 关联整行注释和下一行属性（注释随下一行移动）
- * 支持多行属性（按分号封闭）
+ * 解析提取属性块（属性和相关注释）
+ * 插件核心函数
  * @param {string[]} selectedLines 选中的文本行数组
  * @param {string} eol 行结束符
- * @returns {Array<{ property: string|null, line: string, originalIndex: number }>} 关联后的块数组
+ * @returns {Array<{ property: string, text: string, range: {start: number, end: number} }>} 属性块数组，每个块包含属性名、完整文本和行范围
  */
-function associateCommentProps(selectedLines, eol = '\n') {
+function getPropertyBlocks(selectedLines, eol = '\n') {
   const blocks = [];
-  let currentComments = [];
-  let originalIndex = 0;
+  let i = 0;
 
-  for (let i = 0; i < selectedLines.length; i++) {
-    const line = selectedLines[i];
+  outerLoop: while (i < selectedLines.length) {
+    const startLine = i;
+    const currentBlockLines = [];
 
-    if (isFullLineComment(line)) {
-      // 收集连续的整行注释
-      currentComments.push(line);
-    } else if (line.trim().startsWith('/*') && !line.trim().includes('*/')) {
-      // 处理多行注释起始（非单行闭合）
-      currentComments.push(line);
-      let j = i + 1;
-      while (j < selectedLines.length) {
-        const nextLine = selectedLines[j];
-        currentComments.push(nextLine);
-        if (nextLine.includes('*/')) {
-          i = j;
-          break;
+    // 1. 收集前置注释（单行和多行注释）
+    while (i < selectedLines.length) {
+      const line = selectedLines[i];
+      if (isFullLineComment(line)) {
+        // 单行注释
+        currentBlockLines.push(line);
+        i++;
+      } else if (line.trim().startsWith('/*') && !line.trim().includes('*/')) {
+        // 多行注释起始
+        currentBlockLines.push(line);
+        i++;
+        // 继续收集直到注释结束
+        while (i < selectedLines.length) {
+          const nextLine = selectedLines[i];
+          currentBlockLines.push(nextLine);
+          i++;
+          if (nextLine.includes('*/')) break;
         }
-        j++;
-      }
-      if (j === selectedLines.length) i = j - 1;
-    } else {
-      const propertyName = extractPropertyName(line);
-      if (propertyName) {
-        // 属性开始
-        let propertyLines = [line];
-        let j = i;
-
-        // 如果不是完整行，尝试向后合并，直到遇到包含 ; 或 { 的行
-        let isValidProperty = true;
-        while (true) {
-          // 移除注释
-          const t = propertyLines[propertyLines.length - 1]
-            .replace(REGEX_REMOVE_COMMENTS, '')
-            .trim();
-
-          if (t.endsWith(';')) { // 完整属性行
-            isValidProperty = true;
-            break;
-          } else if (t.endsWith('{')) { // 多行选择器，非属性
-            isValidProperty = false;
-            break;
-          } else if (j >= selectedLines.length - 1) { // 到达文本末尾
-            isValidProperty = false;
-            break;
-          }
-
-          j++;
-          const currentLine = selectedLines[j];
-          propertyLines.push(currentLine);
-        }
-
-        i = j;
-
-        // 合并注释和属性行
-        const fullBlockContent = [...currentComments, propertyLines.join(eol)].join(eol);
-
-        // 关联注释和当前属性块
-        blocks.push({
-          property: isValidProperty ? propertyName : null,
-          line: fullBlockContent,
-          originalIndex: originalIndex, // 保留原始索引
-        });
-        // 重置注释收集器
-        currentComments = [];
       } else {
-        // 非属性行、非整行注释（如空行、选择器），单独作为块（不参与排序）
-        if (currentComments.length > 0) {
-          // 无后续属性的注释，单独作为块
-          blocks.push({
-            property: null,
-            line: currentComments.join(eol),
-            originalIndex: originalIndex,
-          });
-          currentComments = [];
-        }
-        blocks.push({
-          property: null,
-          line: line,
-          originalIndex: originalIndex,
-        });
+        // 不是注释，跳出注释收集阶段
+        break;
       }
     }
-    originalIndex++;
-  }
 
-  // 处理末尾剩余的注释
-  if (currentComments.length > 0) {
+    // 2. 检查并处理属性
+    const line = selectedLines[i];
+    const propertyName = extractPropertyName(line);
+
+    if (!propertyName) {
+      // 非属性行，跳过（之前收集的注释会被丢弃）
+      i++;
+      continue;
+    }
+
+    // 发现有效属性，开始构建属性块
+    let propertyClosed = false;
+    let hasFollowingComment = false;
+
+    // 收集完整的属性内容（可能跨多行，包含行内注释）
+    while (i < selectedLines.length) {
+      const currentLine = selectedLines[i];
+      currentBlockLines.push(currentLine);
+      i++;
+
+      // 判断属性是否闭合（遇到结尾分号）
+      const cleanLine = currentLine.replace(REGEX_REMOVE_COMMENTS, '').trim();
+      if (cleanLine.endsWith(';')) {
+        propertyClosed = true;
+      } else if (cleanLine.endsWith('{') || cleanLine.endsWith('}')) {
+        // 还没遇到分号就先遇到了大括号，存在歧义，忽略
+        continue outerLoop; // 直接跳过当前属性块
+      }
+
+      // 检测是否有后接多行注释
+      if (REGEX_CSS_COMMENT_START.test(currentLine)) {
+        hasFollowingComment = true;
+      } else if (hasFollowingComment && currentLine.includes('*/')) {
+        hasFollowingComment = false;
+      }
+
+      // 属性语义结束时完成当前块
+      if (propertyClosed) break;
+    }
+
+    // 3. 收集后接注释（单行和多行注释）
+    if (hasFollowingComment) {
+      while (i < selectedLines.length) {
+        const nextLine = selectedLines[i];
+        currentBlockLines.push(nextLine);
+        i++;
+        if (nextLine.trim().endsWith('*/')) break;
+      }
+    }
+
+    // 添加完整的属性块
     blocks.push({
-      property: null,
-      line: currentComments.join(eol),
-      originalIndex: originalIndex,
+      property: propertyName,
+      text: currentBlockLines.join(eol),
+      range: { start: startLine, end: i - 1 },
     });
   }
 
@@ -172,7 +164,7 @@ function getBlockComparator(customOrder) {
     } else if (indexB !== -1) {
       return 1;
     } else {
-      return a.originalIndex - b.originalIndex;
+      return a.range.start - b.range.start;
     }
   };
 }
@@ -186,7 +178,7 @@ function getBlockComparator(customOrder) {
  */
 function processGroup(groupBlocks, comparator, eol) {
   const sorted = [...groupBlocks].sort(comparator);
-  return sorted.map((block) => block.line).join(eol);
+  return sorted.map((block) => block.text).join(eol);
 }
 
 /**
@@ -197,7 +189,7 @@ function processGroup(groupBlocks, comparator, eol) {
 function scanAndSortCss(text) {
   const eol = text.includes('\r\n') ? '\r\n' : '\n';
   const lines = text.split(REGEX_NEWLINE);
-  const blocks = associateCommentProps(lines, eol);
+  const blocks = getPropertyBlocks(lines, eol);
   const results = [];
 
   const customOrder = vscode.workspace
@@ -206,40 +198,30 @@ function scanAndSortCss(text) {
   const comparator = getBlockComparator(customOrder);
 
   let currentGroup = [];
-  let currentStartLine = -1;
-  let currentLineIndex = 0;
 
   for (const block of blocks) {
-    // 计算该块占用的行数
-    const blockLineCount = block.line.split(REGEX_NEWLINE).length;
-
-    if (block.property !== null) {
-      if (currentStartLine === -1) {
-        currentStartLine = currentLineIndex;
-      }
-      currentGroup.push(block);
-    } else {
-      // 遇到非属性块，结束当前连续块
-      if (currentGroup.length > 0) {
+    if (currentGroup.length > 0) {
+      const prevBlock = currentGroup[currentGroup.length - 1];
+      // 如果当前块与上一块之间有空隙（不连续），则结束当前组
+      if (block.range.start > prevBlock.range.end + 1) {
         const sortedText = processGroup(currentGroup, comparator, eol);
         results.push({
-          start: currentStartLine,
-          end: currentLineIndex - 1,
+          start: currentGroup[0].range.start,
+          end: prevBlock.range.end,
           sortedText,
         });
         currentGroup = [];
-        currentStartLine = -1;
       }
     }
-    currentLineIndex += blockLineCount;
+    currentGroup.push(block);
   }
 
-  // 处理最后遗留的块
+  // 处理最后遗留的组
   if (currentGroup.length > 0) {
     const sortedText = processGroup(currentGroup, comparator, eol);
     results.push({
-      start: currentStartLine,
-      end: currentLineIndex - 1,
+      start: currentGroup[0].range.start,
+      end: currentGroup[currentGroup.length - 1].range.end,
       sortedText,
     });
   }
