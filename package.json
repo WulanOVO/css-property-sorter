@@ -16,7 +16,7 @@
     "type": "git",
     "url": "https://github.com/WulanOVO/css-property-sorter"
   },
-  "version": "0.1.1",
+  "version": "0.1.2",
   "engines": {
     "vscode": "^1.80.0"
   },
@@ -40,12 +40,12 @@
       "editor/context": [
         {
           "command": "css-property-sorter.sortSelectedCssProperties",
-          "when": "editorHasSelection && editorLangId =~ /css|scss/",
+          "when": "editorHasSelection && editorLangId =~ /css|scss|less/",
           "group": "navigation@100"
         },
         {
           "command": "css-property-sorter.sortCssPropertiesInFile",
-          "when": "editorLangId =~ /css|scss/",
+          "when": "editorLangId =~ /css|scss|less/",
           "group": "navigation@101"
         }
       ]
@@ -55,7 +55,7 @@
         "command": "css-property-sorter.sortSelectedCssProperties",
         "key": "shift+alt+s",
         "mac": "shift+option+s",
-        "when": "editorHasSelection && editorLangId =~ /css|scss/"
+        "when": "editorHasSelection && editorLangId =~ /css|scss|less/"
       }
     ],
     "configuration": {

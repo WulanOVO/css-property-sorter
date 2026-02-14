@@ -60,7 +60,7 @@ function expandSelectionToFullLines(editor, selection) {
  * @param {vscode.TextEditor} editor
  * @param {Array<{range: vscode.Range, text: string}>} edits
  */
-function applyEdits(editor, edits) {
+function applyEdits(editor, edits, startTime) {
   if (edits.length === 0) {
     vscode.window.setStatusBarMessage(getMessage('noCssProperties'), 3000);
     return;
@@ -87,10 +87,18 @@ function applyEdits(editor, edits) {
     })
     .then((success) => {
       if (success) {
+        const endTime = performance.now();
+        const duration = (endTime - startTime);
         if (hasChanges) {
-          vscode.window.setStatusBarMessage(getMessage('sortSuccess'), 3000);
+          vscode.window.setStatusBarMessage(
+            getMessage('sortSuccess') + ` (${duration.toFixed(2)}ms)`,
+            3000,
+          );
         } else {
-          vscode.window.setStatusBarMessage(getMessage('noChanges'), 3000);
+          vscode.window.setStatusBarMessage(
+            getMessage('noChanges') + ` (${duration.toFixed(2)}ms)`,
+            3000,
+          );
         }
       } else {
         vscode.window.setStatusBarMessage(getMessage('replaceFailed'), 3000);
@@ -103,6 +111,8 @@ function activate(context) {
   let sortSelectionCmd = vscode.commands.registerCommand(
     'css-property-sorter.sortSelectedCssProperties',
     () => {
+      const startTime = performance.now();
+
       const editor = vscode.window.activeTextEditor;
       if (!editor) {
         vscode.window.setStatusBarMessage(getMessage('openFileFirst'), 3000);
@@ -135,7 +145,7 @@ function activate(context) {
         }
       }
 
-      applyEdits(editor, edits);
+      applyEdits(editor, edits, startTime);
     },
   );
 
@@ -160,6 +170,8 @@ function activate(context) {
         }
       }
 
+      const startTime = performance.now();
+
       const editor = vscode.window.activeTextEditor;
       if (!editor) {
         vscode.window.setStatusBarMessage(getMessage('openFileFirst'), 3000);
@@ -177,7 +189,7 @@ function activate(context) {
         edits.push({ range, text: res.sortedText });
       }
 
-      applyEdits(editor, edits);
+      applyEdits(editor, edits, startTime);
     },
   );
 

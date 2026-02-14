@@ -1,25 +1,8 @@
 const vscode = require('vscode');
 
 // --- 常量和正则表达式 ---
-const REGEX_SCSS_COMMENT = /^\/\/.*$/;
-const REGEX_CSS_BLOCK_COMMENT = /^\/\*.*\*\/$/;
-const REGEX_CSS_COMMENT_START = /\/\*.*$/;
-const REGEX_REMOVE_COMMENTS = /\/\*.*?\*\/|\/\/.*|\/\*.*$|.*\*\/$/g;
+const REGEX_REMOVE_INTERFERENCE = /\/\/.*|\/\*.*?\*\/|\/\*.*$|.*\*\/$|['"].*['"]/g;
 const REGEX_NEWLINE = /\r?\n/;
-
-/**
- * 核心：判断是否为整行注释
- * @param {string} line 单行文本
- * @returns {boolean} 是否为整行注释
- */
-function isFullLineComment(line) {
-  const trimmedLine = line.trim();
-  // 支持 SCSS // 注释 和 CSS /* */ 整行注释
-  return (
-    REGEX_SCSS_COMMENT.test(trimmedLine) ||
-    REGEX_CSS_BLOCK_COMMENT.test(trimmedLine)
-  );
-}
 
 /**
  * 提取CSS属性名（忽略值和注释）
@@ -27,15 +10,19 @@ function isFullLineComment(line) {
  * @returns {string|null} 属性名（如 width）
  */
 function extractPropertyName(line) {
-  // 移除注释
-  const lineWithoutComments = line.replace(REGEX_REMOVE_COMMENTS, '').trim();
+  // 移除注释和字符串，避免干扰属性行判断
+  const cleanLine = line.replace(REGEX_REMOVE_INTERFERENCE, '').trim();
   // 过滤非属性行
-  if (!lineWithoutComments || !lineWithoutComments.includes(':')) return null;
-  if (lineWithoutComments.startsWith('@')) return null;
-  if (lineWithoutComments.endsWith('{')) return null;
+  if (
+    cleanLine === '' ||
+    !cleanLine.includes(':') ||
+    /^[@|\$|#|%|&]|{$|:.*:/.test(cleanLine)
+  ) {
+    return null;
+  }
 
   // 提取属性名部分
-  const propertyPart = lineWithoutComments.split(':')[0].trim();
+  const propertyPart = cleanLine.split(':')[0].trim();
   // 属性名合法性检查（不允许包含 { } @）
   if (/[{}@]/.test(propertyPart)) return null;
 
@@ -60,15 +47,14 @@ function getPropertyBlocks(selectedLines, eol = '\n') {
     // 1. 收集前置注释（单行和多行注释）
     while (i < selectedLines.length) {
       const line = selectedLines[i];
-      if (isFullLineComment(line)) {
+      const trimmedLine = line.trim();
+
+      if (trimmedLine.startsWith('//')) {
         // 单行注释
         currentBlockLines.push(line);
         i++;
-      } else if (line.trim().startsWith('/*') && !line.trim().includes('*/')) {
-        // 多行注释起始
-        currentBlockLines.push(line);
-        i++;
-        // 继续收集直到注释结束
+      } else if (trimmedLine.startsWith('/*')) {
+        // 多行注释起始，从当前行收集直到注释结束
         while (i < selectedLines.length) {
           const nextLine = selectedLines[i];
           currentBlockLines.push(nextLine);
@@ -98,11 +84,12 @@ function getPropertyBlocks(selectedLines, eol = '\n') {
     // 收集完整的属性内容（可能跨多行，包含行内注释）
     while (i < selectedLines.length) {
       const currentLine = selectedLines[i];
+      const trimmedLine = currentLine.trim();
       currentBlockLines.push(currentLine);
       i++;
 
       // 判断属性是否闭合（遇到结尾分号）
-      const cleanLine = currentLine.replace(REGEX_REMOVE_COMMENTS, '').trim();
+      const cleanLine = currentLine.replace(REGEX_REMOVE_INTERFERENCE, '').trim();
       if (cleanLine.endsWith(';')) {
         propertyClosed = true;
       } else if (cleanLine.endsWith('{') || cleanLine.endsWith('}')) {
@@ -111,7 +98,7 @@ function getPropertyBlocks(selectedLines, eol = '\n') {
       }
 
       // 检测是否有后接多行注释
-      if (REGEX_CSS_COMMENT_START.test(currentLine)) {
+      if (trimmedLine.endsWith('/*')) {
         hasFollowingComment = true;
       } else if (hasFollowingComment && currentLine.includes('*/')) {
         hasFollowingComment = false;
