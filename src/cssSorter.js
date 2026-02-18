@@ -1,7 +1,8 @@
 const vscode = require('vscode');
 
 // --- 常量和正则表达式 ---
-const REGEX_REMOVE_INTERFERENCE = /\/\/.*|\/\*.*?\*\/|\/\*.*$|.*\*\/$|['"].*['"]/g;
+const REGEX_REMOVE_INTERFERENCE =
+  /\/\/.*|\/\*.*?\*\/|\/\*.*$|.*\*\/$|['"].*['"]/g;
 const REGEX_NEWLINE = /\r?\n/;
 
 /**
@@ -89,7 +90,9 @@ function getPropertyBlocks(selectedLines, eol = '\n') {
       i++;
 
       // 判断属性是否闭合（遇到结尾分号）
-      const cleanLine = currentLine.replace(REGEX_REMOVE_INTERFERENCE, '').trim();
+      const cleanLine = currentLine
+        .replace(REGEX_REMOVE_INTERFERENCE, '')
+        .trim();
       if (cleanLine.endsWith(';')) {
         propertyClosed = true;
       } else if (cleanLine.endsWith('{') || cleanLine.endsWith('}')) {
@@ -107,6 +110,8 @@ function getPropertyBlocks(selectedLines, eol = '\n') {
       // 属性语义结束时完成当前块
       if (propertyClosed) break;
     }
+
+    if (!propertyClosed) continue; // 忽略未闭合属性
 
     // 3. 收集后接注释（单行和多行注释）
     if (hasFollowingComment) {

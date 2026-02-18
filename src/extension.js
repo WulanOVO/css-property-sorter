@@ -1,22 +1,25 @@
 const vscode = require('vscode');
 const { scanAndSortCss } = require('./cssSorter');
 
+// 最大允许的多重选区数量，超过此数量将回退到单一大选区
+const MAX_SELECTIONS = 200;
+
 const messages = {
   en: {
     confirmSort: 'Are you sure you want to sort the selected CSS properties?',
-    noCssProperties: '✘ No sortable CSS properties in selection',
-    sortSuccess: '✔ CSS properties sorted successfully',
-    noChanges: '✔ CSS properties sorted successfully (no changes)',
-    replaceFailed: '✘ Failed to replace content',
-    openFileFirst: '✘ Please open a file first',
+    noCssProperties: 'No sortable CSS properties in selection',
+    sortSuccess: 'CSS properties sorted successfully',
+    noChanges: 'CSS properties sorted successfully (no changes)',
+    replaceFailed: 'Failed to replace content',
+    openFileFirst: 'Please open a file first',
   },
   'zh-cn': {
     confirmSort: '确定要对整个文件的 CSS 属性进行排序吗？',
-    noCssProperties: '✘ 选区中没有可处理的 CSS 属性',
-    sortSuccess: '✔ CSS 属性排序成功',
-    noChanges: '✔ CSS 属性排序成功（无变化）',
-    replaceFailed: '✘ 替换内容失败',
-    openFileFirst: '✘ 请先打开一个文件',
+    noCssProperties: '选区中没有可处理的 CSS 属性',
+    sortSuccess: 'CSS 属性排序成功',
+    noChanges: 'CSS 属性排序成功（无变化）',
+    replaceFailed: '替换内容失败',
+    openFileFirst: '请先打开一个文件',
   },
 };
 
@@ -62,15 +65,22 @@ function expandSelectionToFullLines(editor, selection) {
  */
 function applyEdits(editor, edits, startTime) {
   if (edits.length === 0) {
-    vscode.window.setStatusBarMessage(getMessage('noCssProperties'), 3000);
+    vscode.window.showWarningMessage(getMessage('noCssProperties'));
     return;
   }
 
   // 更新选区以高亮显示即将排序的块（视觉反馈）
-  const newSelections = edits.map(
-    (edit) => new vscode.Selection(edit.range.start, edit.range.end),
-  );
-  editor.selections = newSelections;
+  if (edits.length > MAX_SELECTIONS) {
+    // 如果选区数量过多，创建一个包含所有修改的大选区，防止性能问题
+    const start = edits[0].range.start;
+    const end = edits[edits.length - 1].range.end;
+    editor.selection = new vscode.Selection(start, end);
+  } else {
+    const newSelections = edits.map(
+      (edit) => new vscode.Selection(edit.range.start, edit.range.end),
+    );
+    editor.selections = newSelections;
+  }
 
   let hasChanges = false;
 
@@ -88,34 +98,32 @@ function applyEdits(editor, edits, startTime) {
     .then((success) => {
       if (success) {
         const endTime = performance.now();
-        const duration = (endTime - startTime);
+        const duration = endTime - startTime;
         if (hasChanges) {
-          vscode.window.setStatusBarMessage(
+          vscode.window.showInformationMessage(
             getMessage('sortSuccess') + ` (${duration.toFixed(2)}ms)`,
-            3000,
           );
         } else {
-          vscode.window.setStatusBarMessage(
+          vscode.window.showInformationMessage(
             getMessage('noChanges') + ` (${duration.toFixed(2)}ms)`,
-            3000,
           );
         }
       } else {
-        vscode.window.setStatusBarMessage(getMessage('replaceFailed'), 3000);
+        vscode.window.showErrorMessage(getMessage('replaceFailed'));
       }
     });
 }
 
 function activate(context) {
   // 注册排序命令：选区排序
-  let sortSelectionCmd = vscode.commands.registerCommand(
+  const sortSelectionCmd = vscode.commands.registerCommand(
     'css-property-sorter.sortSelectedCssProperties',
     () => {
       const startTime = performance.now();
 
       const editor = vscode.window.activeTextEditor;
       if (!editor) {
-        vscode.window.setStatusBarMessage(getMessage('openFileFirst'), 3000);
+        vscode.window.showWarningMessage(getMessage('openFileFirst'));
         return;
       }
 
@@ -150,7 +158,7 @@ function activate(context) {
   );
 
   // 注册排序命令：全文排序
-  let sortFileCmd = vscode.commands.registerCommand(
+  const sortFileCmd = vscode.commands.registerCommand(
     'css-property-sorter.sortCssPropertiesInFile',
     async () => {
       // 提示确认
@@ -174,7 +182,7 @@ function activate(context) {
 
       const editor = vscode.window.activeTextEditor;
       if (!editor) {
-        vscode.window.setStatusBarMessage(getMessage('openFileFirst'), 3000);
+        vscode.window.showErrorMessage(getMessage('openFileFirst'));
         return;
       }
 
